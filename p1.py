@@ -38,12 +38,13 @@ def showHistogram(inputImage,outputImage):
         pyplot.show()
         
 
-def normalizeData(inputData):
+def normalizeData(inputData,maxValue,minValue):
         dimX = len(inputData)
         dimY = len(inputData[0]) 
         normData = np.zeros((dimX,dimY),"f")
-        maxValue = np.amax(inputData)
-        minValue = np.amin(inputData)
+        #maxValue = np.amax(inputData)
+        #minValue = np.amin(inputData)
+        print(maxValue,minValue)
         for i in range(dimX):
                 for j in range(dimY):
                         normData[i,j] = (inputData[i,j]-minValue) / (maxValue-minValue)
@@ -68,9 +69,9 @@ def adjustIntensity(inImage,inRange =[], outRange = [0,1]):
         
         for i in range(dimX):
                 for j in range(dimY):
-                        outImage[i,j] = inRange[0] + ((inRange[1]-inRange[0])*((arrImage[i,j]-minValue)) / (maxValue-minValue))
+                        outImage[i,j] = inRange[0] + ((inRange[1]-inRange[0])*((arrImage[i,j]-minValue)) / (maxValue-minValue)) 
         
-       # outImage=cv2.normalize(outImage, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+        #outImage=normalizeData(outImage,inRange[1],inRange[0])
         return outImage.astype(int)
 
 
@@ -80,13 +81,16 @@ def equalizeIntensity(inImage, nbins = 256):
         arrImage = np.asarray(inImage)
         dimX = len(arrImage)
         dimY = len(arrImage[0]) 
-
-        sum = 0
+        outImage = np.zeros((dimX,dimY),"f")
+        
         histAcum,bins,x =pyplot.hist(arrImage.ravel(),bins=256,cumulative=True)
         hist,bins,x =pyplot.hist(arrImage.ravel(),bins=256)
         cdf = 255 * histAcum/(dimX*dimX)
 
-        outImage = np.interp(inImage,bins[:-1],cdf)
+        for i in range(dimX):
+                for j in range(dimY):
+                        outImage [i,j]= cdf[arrImage[i,j]] 
+        
         
         return outImage.astype(int)
         
@@ -102,7 +106,8 @@ def equalizeIntensity(inImage, nbins = 256):
 if __name__ == '__main__':
         
         inImage = cv2.imread('pictures/lena.png',0)
-        outImage = adjustIntensity('lena.png',[0,50])
+        #outImage = adjustIntensity('lena.png')
+        outImage = equalizeIntensity('lena.png')
         #showImage(inImage,outImage)
         showHistogram(inImage,outImage)
         print(outImage)
