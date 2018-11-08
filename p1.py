@@ -9,7 +9,6 @@ import math
 
 #path de la carpeta donde guardo las imagenes
 PATH = os.path.abspath('pictures') + '/'
-
 #Funciones que uso para la visualizar una imagen con pyplot
 def showImage(inputImage,outputImage):
         pyplot.subplot(1,2,1)
@@ -98,39 +97,64 @@ def equalizeIntensity(inImage, nbins = 256):
                 for j in range(dimY):
                         outImage [i,j]= cdf[arrImage[i,j]] 
         
-        
         return outImage.astype(int)
         
         
-        
 def filterImage(inImage, kernel):
-        kernelP = len(kernel)
-        kernelQ = len(kernel[0])
-        centerK = (kernelP//2),(kernelQ//2)
-        c1 = kernelP//2
-        c2 = kernelQ//2
-        #print(centerK)
-        arrImage=inImage#.asarray(inImage)
-        dimX = len(arrImage)
-        dimY = len(arrImage[0])
-        #print(dimX,dimY)
-        outImage = np.zeros((dimX,dimY),float)
-        convImage = np.zeros((dimX+2,dimY+2),float)
-        convImage[1:-1,1:-1] = inImage
+        dim = kernel.shape
+        kernelP = dim[0]
+        kernelQ = dim[1]
+        c1 = (kernelP//2) 
+        c2 = (kernelQ//2) 
+        dimX = len(inImage)
+        dimY = len(inImage[0])
+        #Filas y columnas que se añaden a mayores
+        leftX = c1
+        rightX = kernelP-c1-1
+        upY = c2
+        downY = kernelQ-c2-1
+        convMatrix = np.lib.pad(inImage,((leftX,rightX),(upY,downY)),'constant',constant_values = 0)
+        
+        outImage = np.zeros((dimX,dimY),"f")
+        
         for i in range(dimX):
                 for j in range(dimY):
-                        outImage[i,j] = (kernel * convImage[i:i+kernelP,j:j+kernelQ]).sum()
-                                     
-                                      
-                
-                
-        return outImage
+                        outImage[i,j] = (kernel * convMatrix[i:i+kernelP,j:j+kernelQ]).sum()
         
-   
+        return outImage.astype(int)
+        
 
+        #return outImage
+def gaussKernel1D(sigma):
+        N = 2*(3*sigma)+1
+        N = np.round(N)
+        c1 = N//2
+        kernel = np.zeros((N,1),float)
+        
+        for i in range(c1,N):
+                pos = i-c1
+                kernel[i] = ((math.pow(math.e,(-(pos**2)/2*sigma**2))) / math.sqrt((2*math.pi*sigma))) 
+                
+        
+        for i in range(c1):
+                kernel[i] = kernel[(N-1)-i]
+        
+        return kernel
+
+def gaussianFilter(inImage,sigma):
+        image = np.asarray(inImage)
+        kernel = gaussKernel1D(sigma)
+        kernelT = np.transpose(kernel)
+        print('k= ',kernel.shape,'ktraspuesta: ',kernelT.shape)
+        outImage = filterImage(image,kernel)
+        outImage = filterImage(outImage,kernelT)
+        return outImage.astype(int)
+        
+ 
 if __name__ == '__main__':
         
-       # inImage = cv2.imread('pictures/lena.png',0)
+        inImage = cv2.imread(PATH+'lena.png',0)
+        """
         inImage = np.array([[45,60,98,127,132,133,137,133], \
                   [46,65,98,123,126,128,131,133], \
                   [47,65,96,115,119,123,135,137], \
@@ -139,13 +163,21 @@ if __name__ == '__main__':
                   [49,53,68,83,97,113,128,133],\
                   [50,50,58,70,84,102,116,126],\
                   [50,50,52,58,69,86,101,120]])
+        
         kernel = np.array([[0.1,0.1,0.1],\
                         [0.1,0.2,0.1],\
                         [0.1,0.1,0.1]])
-
+        
+        #kernel = np.array([[0.1,0.2,0.1]])
         
         
         outImage = filterImage(inImage,kernel)
-        print(np.round(outImage[1:7,1:7]))
+        #showHistogram(inImage,outImage)
+        print(outImage)
+        """
+        kernel = gaussKernel1D(1)
+        outImage = gaussianFilter(inImage,1)
+        showHistogram(inImage,outImage)
+        
         
         
