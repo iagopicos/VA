@@ -181,8 +181,8 @@ def highBoost(inImage,A,method,param):
         #fImage = adjustIntensity(fImage,[0,255])
        # smoothImage = adjustIntensity(smoothImage,[0,255])
         outImage = fImage-smoothImage
-        outImage = inImage+outImage
-        #outimage= adjustIntensity(outImage,[0,255])
+        
+        outimage= adjustIntensity(outImage,[0,255])
         #outImage = inImage+outImage
         return np.abs(outImage.astype(int))
 
@@ -245,7 +245,10 @@ def erode(inImage,SE,center = []):
         
         for i in range(dimX):
                 for j in range(dimY):
-                       outImage[i,j] = _erode(convMatrix[i:i+P,j:j+Q],SE)
+                       if ((SE <= convMatrix[i:i+P,j:j+Q]).all()):
+                                outImage[i,j] = 1
+                       else:
+                                outImage[i,j] = 0
                        """
                        if((SE & convMatrix[i:i+P,j:j+Q]).all()):
                                 outImage[i,j] = 1
@@ -321,12 +324,13 @@ def closing(inImage,SE,center):
 def complementario(inImage):
         dimX = len(inImage)
         dimY = len(inImage[0])
+        outImage = np.zeros((dimX,dimY),int)
         for i in range(dimX):
                 for j in range(dimY):
                         if inImage[i,j] == 0:
-                                inImage[i,j] = 1
+                                outImage[i,j] = 1
                         else:
-                                inImage[i,j] = 0
+                                outImage[i,j] = 0
         return inImage
 def hit_or_miss(inImage,objSEj,bgSE,center):
         dimX = len(inImage)
@@ -335,7 +339,7 @@ def hit_or_miss(inImage,objSEj,bgSE,center):
         P = len(objSEj)
         Q = len(objSEj[0])
         
-
+        print(inImage)
         comIm = complementario(inImage)
 
         for p in range(P):
@@ -345,9 +349,8 @@ def hit_or_miss(inImage,objSEj,bgSE,center):
                                 exit
         outImage1 = erode(_toNormal(inImage),objSEj,center)
         outImage2 = erode(_toNormal(comIm),bgSE,center)
-
         outImage = outImage1 & outImage2
-        return outImage
+        return _toNormal(outImage)
 
 def _Roberts(inImage):
         dimX = len(inImage)
@@ -387,7 +390,6 @@ def _Prewitt(inImage):
         kernelY = np.array([[-1,-1,-1],[0,0,0],[1,1,1]])
         P = len(kernelX)
         Q = len(kernelX[0])
-        print(kernelY)
         Gx = np.zeros((dimX,dimY),int)
         Gy = np.zeros((dimX,dimY),int)
         
@@ -404,7 +406,6 @@ def _Sobel(inImage):
         kernelY = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
         P = len(kernelX)
         Q = len(kernelX[0])
-        print(kernelY)
         Gx = np.zeros((dimX,dimY),int)
         Gy = np.zeros((dimX,dimY),int)
         
@@ -424,6 +425,19 @@ def gradientImage(inImage,operator):
         elif(operator == 'Sobel'):
                 Gx,Gy = _Sobel(inImage)
         return np.abs(Gx),np.abs(Gy)
+def Canny(inImage, sigma, tlow,thigh):
+        dimX = len(inImage)
+        dimY = len(inImage[0])
+
+        smoothImage = gaussianFilter(inImage,sigma)
+        Gx,Gy = gradientImage(inImage,'Sobel')
+        Em = np.sqrt(Gx**2+Gy**2)
+        E0 = np.arctan(Gy/Gx)
+        print(E0)
+        
+
+
+
 def createLines():
         return np.array([[255,0,0,0],\
                    [255,0,0,0],\
@@ -465,27 +479,28 @@ if __name__ == '__main__':
         print(outImage)
         """
         #outImage = medianFilter(inImage,3)
-        outImage = highBoost(inImage,1.5,'gaussian',3.6)
+       # outImage = highBoost(inImage,1.5,'gaussian',3.6)
         #cv2.imwrite('outImage.png',outImage)
         #print(inImage)
         #outImage = adjustIntensity(outImage,[0,255])
-        showHistogram(inImage,outImage)
+        #showHistogram(inImage,outImage)
         #print(gaussKernel1D(1))
         #print(gaussKernel1D(1.2))
         
         
         #Operadores morfologicos
         #inImage = cv2.imread(PATH+'example.png',0)
-        """
-        inImage = createLines()
-        kernelM = np.array([[1,1]])
+        
+        #inImage = createLines()
+        #kernelM = np.array([[1,1]])
         #outImage = erode(inImage,kernelM)
-        outImage = dilatation(inImage,kernelM,[0,1])
+        #outImage = dilatation(inImage,kernelM,[0,1])
         #testImage = cv2.erode(inImage,kernelM.astype(np.uint8),8)
         #print(outImage)
-        showHistogram(inImage,outImage)
+        #showHistogram(inImage,outImage)
         
-
+        Canny(inImage,3,0,0)
+        """
         kernel = np.array([[0,0,0],\
                            [1,1,0],\
                            [0,1,0]])
@@ -493,11 +508,18 @@ if __name__ == '__main__':
         kernelB = np.array([[0,1,1],\
                             [0,0,1],\
                             [0,0,0]])
+        
         inImage = testHitOrMiss()
+        #inImage = cv2.imread(PATH+'binary1.png',0)
+        outImage1 = erode(_toNormal(inImage),kernel,[1,1])
+        outImage2 = erode(_toNormal(complementario(inImage)),kernelB,[1,1])
         outImage = hit_or_miss(inImage,kernel,kernelB,[1,1])
-        showHistogram(_toNormal(inImage),outImage)
-        """
+        outImage = outImage1 & outImage2
+        showHistogram(inImage,outImage2)
+        
         #outImage = adjustIntensity(inImage,[100,200])
         #Gx,Gy = gradientImage(inImage,'Prewitt')
         #outImage = np.abs(Gx+Gy)
         #showImage(inImage,outImage)
+        """
+        
