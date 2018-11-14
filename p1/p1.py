@@ -1,4 +1,5 @@
 #/usr/bin/python3
+#Autor: Iago Fernandez Picos
 import os
 import scipy as sp
 from scipy import misc
@@ -54,45 +55,55 @@ def normalizeData(inputData,maxValue,minValue):
 #Modificar rango dínamico
 def adjustIntensity(inImage,inRange =[], outRange = [0,1]):
        # inImage = cv2.imread((PATH+inImage),0)
-        arrImage = inImage
+        arrImage = normalizeData(inImage,255,0)
         maxValue = np.amax(arrImage)
         minValue = np.amin(arrImage)
         print('max: ',maxValue,'min ',minValue)
         
+        maxValue = np.amax(arrImage)
+        minValue = np.amin(arrImage)
         if (inRange == []):
-                inRange = np.array([minValue,maxValue],dtype=int)
+                inRange = np.array([minValue,maxValue],dtype=float)
                 
-        
         dimX = len(arrImage)
         dimY = len(arrImage[0]) 
         outImage = np.zeros((dimX,dimY),"f")
         
         for i in range(dimX):
                 for j in range(dimY):
-                        outImage[i,j] = inRange[0] + ((inRange[1]-inRange[0])*((arrImage[i,j]-minValue)) / (maxValue-minValue))
+                     outImage[i,j] = outRange[0] + ((outRange[1]-outRange[0])*((arrImage[i,j]- inRange[0])) / (inRange[1]-inRange[0]))
         
+        """
+        for i in range(dimX):
+                for j in range(dimY):
+                        outImage1[i,j] = outRange[0] + ((outRange[1]-outRange[0])*((outImage[i,j]-minValue)) / (maxValue-minValue))
+        """
         
-        
-        return outImage/255
+        print(outImage)
+        return outImage
+
 
 
         
 def equalizeIntensity(inImage, nbins = 256):
         #inImage = cv2.imread(PATH+inImage,0)
         arrImage = inImage
+        #arrImage = np.round(arrImage,decimals=0)
+        #print(arrImage)
         dimX = len(arrImage)
         dimY = len(arrImage[0]) 
         outImage = np.zeros((dimX,dimY),"f")
         
-        histAcum,bins,x =pyplot.hist(arrImage.ravel(),bins=256,cumulative=True)
-        hist,bins,x =pyplot.hist(arrImage.ravel(),bins=256)
+        histAcum,bins,x =pyplot.hist(arrImage.ravel(),nbins,cumulative=True)
+        hist,bins,x =pyplot.hist(arrImage.ravel(),nbins)
 
-        cdf = (histAcum/(dimX*dimX)) *255
+        cdf = (histAcum/(dimX*dimX))*255
+        
         for i in range(dimX):
                 for j in range(dimY):
                         outImage [i,j]= cdf[arrImage[i,j]] 
         
-        return outImage.astype(int)
+        return outImage
         
         
 def filterImage(inImage, kernel):
@@ -260,7 +271,36 @@ def erode(inImage,SE,center = []):
         return _toNormal(outImage.astype(int))
         
 
+def erode2(inImage,SE,center = []):
+        P = SE.shape[0]
+        Q = SE.shape[1]
+        
+        if (center == []):
+                center = [P//2,Q//2]
+        c1 = center[0] 
+        c2 = center[1]
 
+        dimX = len(inImage)
+        dimY = len(inImage[0])
+        #Filas y columnas que se añaden a mayores
+        leftX = c1
+        rightX = P-c1-1
+        upY = c2
+        downY = Q-c2-1
+        binrayImage = inImage
+        if (center == []):
+                center = [c1,c2]
+         
+        convMatrix = np.lib.pad(binrayImage,((leftX,rightX),(upY,downY)),'edge')
+        outImage = np.zeros((dimX,dimY),int)
+        #SE = np.flip(SE)
+        
+        for i in range(dimX):
+                for j in range(dimY):
+                       outImage[i,j]= np.min(SE*convMatrix[i:i+P,j:j+Q])
+                            
+        
+        return outImage.astype(int)
 
 
 def _dilatation(inImage,kernel):
@@ -413,7 +453,7 @@ def _Sobel(inImage):
                 for j in range(dimY-Q):
                         Gx[i,j] = (kernelX * inImage[i:i+P,j:j+Q]).sum()
                         Gy[i,j] = (kernelY * inImage[i:i+P,j:j+Q]).sum()
-        return np.abs(Gx),np.abs(Gy)
+        return Gx,Gy
 
 def gradientImage(inImage,operator):
         if (operator == 'Roberts'):
@@ -425,19 +465,37 @@ def gradientImage(inImage,operator):
         elif(operator == 'Sobel'):
                 Gx,Gy = _Sobel(inImage)
         return np.abs(Gx),np.abs(Gy)
+def direction(dk):
+        if(dk <120):
+                return (-1,0)
+        elif(dk>150 and dx< 90):
+                pass
+
+        
+                        
+        
 def Canny(inImage, sigma, tlow,thigh):
         dimX = len(inImage)
         dimY = len(inImage[0])
 
         smoothImage = gaussianFilter(inImage,sigma)
         Gx,Gy = gradientImage(inImage,'Sobel')
+        
         Em = np.sqrt(Gx**2+Gy**2)
-        E0 = np.arctan(Gy/Gx)
-        print(E0)
+        E0 = np.arctan2(Gy,Gx)
+        In = np.zeros((dimX,dimY))
+        E0 = np.rad2deg(E0)
+        
+        for i in range(1,dimX-1):
+                for j in range(1,dimY-1):
+                        if(E0[i,j]<E0[i-1,j-1] and E0[i,j] <E0[i+1,j+1]):
+                                In[i,j] = 0
+                        else:
+                                In[i,j] = E0[i,j]
         
 
 
-
+#Imagenes de prueba para operadores binarios
 def createLines():
         return np.array([[255,0,0,0],\
                    [255,0,0,0],\
@@ -456,70 +514,16 @@ def testHitOrMiss():
 
 if __name__ == '__main__':
         
-        inImage = cv2.imread(PATH+'lena.png',0)
-        """
-        inImage = np.array([[45,60,98,127,132,133,137,133], \
-                  [46,65,98,123,126,128,131,133], \
-                  [47,65,96,115,119,123,135,137], \
-                  [47,63,91,107,113,122,138,134],\
-                  [50,59,80,97,110,123,133,134], \
-                  [49,53,68,83,97,113,128,133],\
-                  [50,50,58,70,84,102,116,126],\
-                  [50,50,52,58,69,86,101,120]])
-        
-        kernel = np.array([[0.1,0.1,0.1],\
-                        [0.1,0.2,0.1],\
-                        [0.1,0.1,0.1]])
-        
-        #kernel = np.array([[0.1,0.2,0.1]])
-        
-        
-        outImage = filterImage(inImage,kernel)
-        #showHistogram(inImage,outImage)
-        print(outImage)
-        """
-        #outImage = medianFilter(inImage,3)
-       # outImage = highBoost(inImage,1.5,'gaussian',3.6)
-        #cv2.imwrite('outImage.png',outImage)
+        inImage = cv2.imread(PATH+'grays.png',0)
+        #outImage = erode2(inImage,np.ones((5,5)))
+        #showImage(inImage,outImage)
         #print(inImage)
-        #outImage = adjustIntensity(outImage,[0,255])
-        #showHistogram(inImage,outImage)
-        #print(gaussKernel1D(1))
-        #print(gaussKernel1D(1.2))
-        
-        
-        #Operadores morfologicos
-        #inImage = cv2.imread(PATH+'example.png',0)
-        
-        #inImage = createLines()
-        #kernelM = np.array([[1,1]])
-        #outImage = erode(inImage,kernelM)
-        #outImage = dilatation(inImage,kernelM,[0,1])
-        #testImage = cv2.erode(inImage,kernelM.astype(np.uint8),8)
+        #outImage=equalizeIntensity(inImage,256)
         #print(outImage)
         #showHistogram(inImage,outImage)
         
-        Canny(inImage,3,0,0)
-        """
-        kernel = np.array([[0,0,0],\
-                           [1,1,0],\
-                           [0,1,0]])
-        
-        kernelB = np.array([[0,1,1],\
-                            [0,0,1],\
-                            [0,0,0]])
-        
-        inImage = testHitOrMiss()
-        #inImage = cv2.imread(PATH+'binary1.png',0)
-        outImage1 = erode(_toNormal(inImage),kernel,[1,1])
-        outImage2 = erode(_toNormal(complementario(inImage)),kernelB,[1,1])
-        outImage = hit_or_miss(inImage,kernel,kernelB,[1,1])
-        outImage = outImage1 & outImage2
-        showHistogram(inImage,outImage2)
-        
-        #outImage = adjustIntensity(inImage,[100,200])
-        #Gx,Gy = gradientImage(inImage,'Prewitt')
-        #outImage = np.abs(Gx+Gy)
-        #showImage(inImage,outImage)
-        """
+        outImage = adjustIntensity(inImage,[0.47,0.56])
+        #outImage2 = adjustIntensity(inImage,[0,1])
+        #print(outImage)
+        showHistogram(inImage,outImage,[256,1])
         
